@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { Recipe, InventoryItem } from "@shared/schema";
 import RecipeCard from "./recipe-card";
 import { Button } from "@/components/ui/button";
@@ -14,7 +14,7 @@ interface RecipeListProps {
   inventoryItems: InventoryItem[];
 }
 
-type FilterTag = "All" | "Quick" | "Medium" | "Slow" | "Vegetarian" | "Low Carb";
+type FilterTag = "All" | "Quick";
 
 export default function RecipeList({ recipes, isLoading, onViewRecipe, inventoryItems }: RecipeListProps) {
   const [activeFilter, setActiveFilter] = useState<FilterTag>("All");
@@ -23,24 +23,10 @@ export default function RecipeList({ recipes, isLoading, onViewRecipe, inventory
   // Apply filters and search
   const filteredRecipes = useMemo(() => {
     return recipes.filter(recipe => {
-      // First apply tag filters
-      let matchesFilter = 
+      // Apply time filter
+      const matchesFilter = 
         activeFilter === "All" || 
-        (activeFilter === "Quick" && recipe.cookTime <= 15) ||
-        (activeFilter === "Medium" && recipe.cookTime > 15 && recipe.cookTime <= 30) ||
-        (activeFilter === "Slow" && recipe.cookTime > 30);
-      
-      // Handle vegetarian tag
-      if (activeFilter === "Vegetarian") {
-        const tags = recipe.tags || [];
-        matchesFilter = tags.includes("Vegetarian");
-      }
-      
-      // Handle low carb tag
-      if (activeFilter === "Low Carb") {
-        const tags = recipe.tags || [];
-        matchesFilter = tags.includes("Low Carb");
-      }
+        (activeFilter === "Quick" && recipe.cookTime < 30);
 
       if (!matchesFilter) return false;
 
@@ -64,8 +50,9 @@ export default function RecipeList({ recipes, isLoading, onViewRecipe, inventory
             ing.name?.toLowerCase().includes(query));
         }
       } catch (e) {
-        // In case the ingredients is not valid JSON or has a different format
-        if (recipe.ingredients.toLowerCase().includes(query)) return true;
+        // If ingredients is not a JSON string or parsing fails, don't search in it
+        // The error was happening here before, so we're now properly handling it
+        return false;
       }
       
       return false;
@@ -147,7 +134,7 @@ export default function RecipeList({ recipes, isLoading, onViewRecipe, inventory
       <div className="flex flex-wrap gap-2 mb-4">
         <span className="text-sm font-medium text-neutral-700 self-center mr-2">Filter by:</span>
         
-        {/* Time Filters */}
+        {/* Time Filters - Only All and Quick (<30min) as requested */}
         <Badge 
           variant={activeFilter === "All" ? "default" : "outline"}
           className={`rounded-full cursor-pointer ${activeFilter === "All" ? "bg-primary-100 text-primary-800 hover:bg-primary-200" : "bg-neutral-100 text-neutral-700 hover:bg-primary-100 hover:text-primary-800"}`} 
@@ -160,37 +147,7 @@ export default function RecipeList({ recipes, isLoading, onViewRecipe, inventory
           className={`rounded-full cursor-pointer ${activeFilter === "Quick" ? "bg-primary-100 text-primary-800 hover:bg-primary-200" : "bg-neutral-100 text-neutral-700 hover:bg-primary-100 hover:text-primary-800"}`} 
           onClick={() => setActiveFilter("Quick")}
         >
-          Quick (≤ 15 min)
-        </Badge>
-        <Badge 
-          variant={activeFilter === "Medium" ? "default" : "outline"}
-          className={`rounded-full cursor-pointer ${activeFilter === "Medium" ? "bg-primary-100 text-primary-800 hover:bg-primary-200" : "bg-neutral-100 text-neutral-700 hover:bg-primary-100 hover:text-primary-800"}`} 
-          onClick={() => setActiveFilter("Medium")}
-        >
-          Medium (16-30 min)
-        </Badge>
-        <Badge 
-          variant={activeFilter === "Slow" ? "default" : "outline"}
-          className={`rounded-full cursor-pointer ${activeFilter === "Slow" ? "bg-primary-100 text-primary-800 hover:bg-primary-200" : "bg-neutral-100 text-neutral-700 hover:bg-primary-100 hover:text-primary-800"}`} 
-          onClick={() => setActiveFilter("Slow")}
-        >
-          Slow (30+ min)
-        </Badge>
-        
-        {/* Dietary Filters */}
-        <Badge 
-          variant={activeFilter === "Vegetarian" ? "default" : "outline"}
-          className={`rounded-full cursor-pointer ${activeFilter === "Vegetarian" ? "bg-primary-100 text-primary-800 hover:bg-primary-200" : "bg-neutral-100 text-neutral-700 hover:bg-primary-100 hover:text-primary-800"}`} 
-          onClick={() => setActiveFilter("Vegetarian")}
-        >
-          Vegetarian
-        </Badge>
-        <Badge 
-          variant={activeFilter === "Low Carb" ? "default" : "outline"}
-          className={`rounded-full cursor-pointer ${activeFilter === "Low Carb" ? "bg-primary-100 text-primary-800 hover:bg-primary-200" : "bg-neutral-100 text-neutral-700 hover:bg-primary-100 hover:text-primary-800"}`} 
-          onClick={() => setActiveFilter("Low Carb")}
-        >
-          Low Carb
+          Quick (&lt; 30 min)
         </Badge>
       </div>
     </>
