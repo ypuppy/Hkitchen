@@ -1,24 +1,15 @@
-import { useState } from "react";
-import { z } from "zod";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
+import { useState, FormEvent } from "react";
 import { Button } from "@/components/ui/button";
-import { useMutation } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
-import { queryClient } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { inventoryFormSchema } from "@shared/schema";
+import { useToast } from "@/hooks/use-toast";
+import { queryClient } from "@/lib/queryClient";
 import { Plus, X, Loader2, UtensilsCrossed, Apple, Beef, Egg, Milk, Carrot, Fish } from "lucide-react";
 
 interface InventoryFormProps {
   onCancel: () => void;
   onSuccess: () => void;
 }
-
-type FormValues = z.infer<typeof inventoryFormSchema>;
 
 // Common food items for quick selection
 interface QuickItem {
@@ -29,6 +20,14 @@ interface QuickItem {
 export default function InventoryForm({ onCancel, onSuccess }: InventoryFormProps) {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [name, setName] = useState("");
+  const [quantity, setQuantity] = useState("1");
+  const [unit, setUnit] = useState("pcs");
+  const [errors, setErrors] = useState({
+    name: "",
+    quantity: "",
+    unit: ""
+  });
   
   const quickItems: QuickItem[] = [
     { name: "Apple", icon: <Apple className="h-4 w-4" /> },
@@ -39,32 +38,59 @@ export default function InventoryForm({ onCancel, onSuccess }: InventoryFormProp
     { name: "Fish", icon: <Fish className="h-4 w-4" /> },
   ];
   
-  const form = useForm<FormValues>({
-    resolver: zodResolver(inventoryFormSchema),
-    defaultValues: {
+  const selectQuickItem = (itemName: string) => {
+    setName(itemName);
+  };
+
+  const validateForm = () => {
+    let valid = true;
+    const newErrors = {
       name: "",
-      quantity: "1", // Using string since the schema expects a string
-      unit: "pcs",
-    },
-  });
-  
-  // Simple direct form submission function 
-  const handleSubmit = async (data: FormValues) => {
-    console.log("🚨 Form submitted with data:", data);
+      quantity: "",
+      unit: ""
+    };
+    
+    if (!name.trim()) {
+      newErrors.name = "Item name is required";
+      valid = false;
+    }
+    
+    const qtyNum = parseFloat(quantity);
+    if (isNaN(qtyNum) || qtyNum <= 0) {
+      newErrors.quantity = "Quantity must be greater than 0";
+      valid = false;
+    }
+    
+    if (!unit) {
+      newErrors.unit = "Unit is required";
+      valid = false;
+    }
+    
+    setErrors(newErrors);
+    return valid;
+  };
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    console.log("🚨 Form submitted with:", { name, quantity, unit });
+    
+    if (!validateForm()) {
+      console.log("❌ Form validation failed");
+      return;
+    }
     
     if (isSubmitting) {
       console.log("🚫 Already submitting, skipping");
       return;
     }
     
-    // Set submitting state to show loading indicator
     setIsSubmitting(true);
     
     try {
-      // Ensure quantity is a string
       const payload = {
-        ...data,
-        quantity: data.quantity.toString(),
+        name,
+        quantity,
+        unit
       };
       
       console.log("📤 Sending inventory data to API:", payload);
@@ -81,7 +107,6 @@ export default function InventoryForm({ onCancel, onSuccess }: InventoryFormProp
       
       console.log("📥 API Response status:", response.status);
       
-      // Handle error responses
       if (!response.ok) {
         const errorText = await response.text();
         console.error("API Error response:", errorText);
@@ -97,11 +122,9 @@ export default function InventoryForm({ onCancel, onSuccess }: InventoryFormProp
         throw new Error(errorMessage);
       }
       
-      // Handle successful response
       const result = await response.json();
       console.log("✅ Item added successfully:", result);
       
-      // Update cache and UI
       queryClient.invalidateQueries({ queryKey: ['/api/inventory'] });
       
       toast({
@@ -110,7 +133,9 @@ export default function InventoryForm({ onCancel, onSuccess }: InventoryFormProp
       });
       
       // Reset form and notify parent component
-      form.reset();
+      setName("");
+      setQuantity("1");
+      setUnit("pcs");
       onSuccess();
     } catch (error) {
       console.error("❌ Error adding inventory item:", error);
@@ -122,10 +147,6 @@ export default function InventoryForm({ onCancel, onSuccess }: InventoryFormProp
     } finally {
       setIsSubmitting(false);
     }
-  };
-  
-  const selectQuickItem = (itemName: string) => {
-    form.setValue("name", itemName);
   };
 
   return (
@@ -167,113 +188,89 @@ export default function InventoryForm({ onCancel, onSuccess }: InventoryFormProp
         </div>
       </div>
       
-      <Form {...form}>
-        <form 
-          onSubmit={form.handleSubmit(handleSubmit)} 
-          className="space-y-4"
-        >
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-neutral-700">Item Name</FormLabel>
-                  <FormControl>
-                    <Input 
-                      placeholder="e.g., Tomatoes" 
-                      className="bg-white border-neutral-200 focus:border-primary focus:ring-primary"
-                      {...field} 
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-neutral-700 mb-1">
+              Item Name
+            </label>
+            <Input 
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g., Tomatoes" 
+              className="bg-white border-neutral-200 focus:border-primary focus:ring-primary"
             />
-            
-            <div className="flex flex-col space-y-2">
-              <FormField
-                control={form.control}
-                name="quantity"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-neutral-700">Quantity</FormLabel>
-                    <div className="flex shadow-sm">
-                      <FormControl>
-                        <Input 
-                          type="number"
-                          min="0.01"
-                          step="0.01"
-                          className="rounded-r-none bg-white border-neutral-200"
-                          value={field.value}
-                          onChange={(e) => {
-                            console.log("Input value changed:", e.target.value);
-                            field.onChange(e.target.value);
-                          }}
-                          onBlur={field.onBlur}
-                        />
-                      </FormControl>
-                      
-                      <FormField
-                        control={form.control}
-                        name="unit"
-                        render={({ field }) => (
-                          <FormItem className="w-1/2">
-                            <Select 
-                              onValueChange={field.onChange} 
-                              defaultValue={field.value}
-                            >
-                              <FormControl>
-                                <SelectTrigger className="rounded-l-none border-l-0 bg-neutral-50">
-                                  <SelectValue placeholder="Unit" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                <SelectItem value="pcs">pcs</SelectItem>
-                                <SelectItem value="kg">kg</SelectItem>
-                                <SelectItem value="g">g</SelectItem>
-                                <SelectItem value="lbs">lbs</SelectItem>
-                                <SelectItem value="oz">oz</SelectItem>
-                                <SelectItem value="cups">cups</SelectItem>
-                                <SelectItem value="tbsp">tbsp</SelectItem>
-                                <SelectItem value="tsp">tsp</SelectItem>
-                                <SelectItem value="ml">ml</SelectItem>
-                                <SelectItem value="l">l</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
+            {errors.name && (
+              <p className="text-sm text-red-500 mt-1">{errors.name}</p>
+            )}
           </div>
           
-          <div className="pt-2 border-t border-neutral-200">
-            <Button 
-              type="submit" 
-              disabled={isSubmitting}
-              className="w-full bg-primary hover:bg-primary/90"
-            >
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Adding...
-                </>
-              ) : (
-                <>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add to Inventory
-                </>
-              )}
-            </Button>
+          <div className="flex flex-col space-y-2">
+            <label className="block text-sm font-medium text-neutral-700 mb-1">
+              Quantity
+            </label>
+            <div className="flex shadow-sm">
+              <Input 
+                type="number"
+                min="0.01"
+                step="0.01"
+                value={quantity}
+                onChange={(e) => {
+                  console.log("Input value changed:", e.target.value);
+                  setQuantity(e.target.value);
+                }}
+                className="rounded-r-none bg-white border-neutral-200"
+              />
+              
+              <div className="w-1/2">
+                <Select 
+                  value={unit}
+                  onValueChange={setUnit}
+                >
+                  <SelectTrigger className="rounded-l-none border-l-0 bg-neutral-50">
+                    <SelectValue placeholder="Unit" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pcs">pcs</SelectItem>
+                    <SelectItem value="kg">kg</SelectItem>
+                    <SelectItem value="g">g</SelectItem>
+                    <SelectItem value="lbs">lbs</SelectItem>
+                    <SelectItem value="oz">oz</SelectItem>
+                    <SelectItem value="cups">cups</SelectItem>
+                    <SelectItem value="tbsp">tbsp</SelectItem>
+                    <SelectItem value="tsp">tsp</SelectItem>
+                    <SelectItem value="ml">ml</SelectItem>
+                    <SelectItem value="l">l</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            {errors.quantity && (
+              <p className="text-sm text-red-500 mt-1">{errors.quantity}</p>
+            )}
           </div>
-        </form>
-      </Form>
+        </div>
+        
+        <div className="pt-2 border-t border-neutral-200">
+          <Button 
+            type="submit" 
+            disabled={isSubmitting}
+            className="w-full bg-primary hover:bg-primary/90"
+          >
+            {isSubmitting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Adding...
+              </>
+            ) : (
+              <>
+                <Plus className="mr-2 h-4 w-4" />
+                Add to Inventory
+              </>
+            )}
+          </Button>
+        </div>
+      </form>
     </div>
   );
 }
