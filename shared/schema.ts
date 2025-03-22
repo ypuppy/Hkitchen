@@ -19,6 +19,7 @@ export type User = typeof users.$inferSelect;
 // Inventory items schema
 export const inventoryItems = pgTable("inventory_items", {
   id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
   name: text("name").notNull(),
   quantity: text("quantity").notNull(),
   unit: text("unit").notNull(),
@@ -28,6 +29,7 @@ export const insertInventoryItemSchema = createInsertSchema(inventoryItems).pick
   name: true,
   quantity: true,
   unit: true,
+  userId: true,
 });
 
 export type InsertInventoryItem = z.infer<typeof insertInventoryItemSchema>;
@@ -47,7 +49,13 @@ export const recipes = pgTable("recipes", {
   matchedIngredients: integer("matched_ingredients").notNull(),
   totalIngredients: integer("total_ingredients").notNull(),
   tags: text("tags").array(), // Store categories like "Quick", "Vegetarian", etc.
-  isFavorite: boolean("is_favorite").default(false).notNull(),
+});
+
+// User favorite recipes junction table
+export const userFavorites = pgTable("user_favorites", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  recipeId: integer("recipe_id").notNull().references(() => recipes.id),
 });
 
 export const insertRecipeSchema = createInsertSchema(recipes).pick({
@@ -62,11 +70,19 @@ export const insertRecipeSchema = createInsertSchema(recipes).pick({
   matchedIngredients: true,
   totalIngredients: true,
   tags: true,
-  isFavorite: true,
 });
 
+export const insertUserFavoriteSchema = createInsertSchema(userFavorites).pick({
+  userId: true,
+  recipeId: true,
+});
+
+export type InsertUserFavorite = z.infer<typeof insertUserFavoriteSchema>;
+export type UserFavorite = typeof userFavorites.$inferSelect;
+
 export type InsertRecipe = z.infer<typeof insertRecipeSchema>;
-export type Recipe = typeof recipes.$inferSelect;
+// Recipe type with an additional isFavorite field for the frontend
+export type Recipe = typeof recipes.$inferSelect & { isFavorite?: boolean };
 
 // Extended schema for inventory form validation
 export const inventoryFormSchema = insertInventoryItemSchema.extend({
