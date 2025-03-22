@@ -28,6 +28,7 @@ interface QuickItem {
 
 export default function InventoryForm({ onCancel, onSuccess }: InventoryFormProps) {
   const { toast } = useToast();
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   const quickItems: QuickItem[] = [
     { name: "Apple", icon: <Apple className="h-4 w-4" /> },
@@ -46,53 +47,66 @@ export default function InventoryForm({ onCancel, onSuccess }: InventoryFormProp
       unit: "pcs",
     },
   });
-
-  const { mutate, isPending } = useMutation({
-    mutationFn: async (data: FormValues) => {
-      try {
-        // Make sure quantity is a string as expected by the API
-        const formattedData = {
-          ...data,
-          quantity: data.quantity.toString(),
-        };
-        
-        console.log("Submitting inventory item:", formattedData);
-        const response = await apiRequest("POST", "/api/inventory", formattedData);
-        
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || "Failed to add item");
-        }
-        
-        return response.json();
-      } catch (error) {
-        console.error("Error in mutation function:", error);
-        throw error; // Re-throw to be caught by onError
+  
+  // Manual form submission without using the mutation hook
+  const handleSubmit = async (data: FormValues) => {
+    console.log("Form submitted with data:", data);
+    
+    if (isSubmitting) {
+      console.log("Already submitting, skipping");
+      return;
+    }
+    
+    setIsSubmitting(true);
+    
+    try {
+      // Make sure quantity is a string
+      const formattedData = {
+        ...data,
+        quantity: data.quantity.toString(),
+      };
+      
+      console.log("Sending inventory data to API:", formattedData);
+      
+      const response = await fetch("/api/inventory", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(formattedData),
+        credentials: "same-origin",
+      });
+      
+      console.log("Response status:", response.status);
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to add item");
       }
-    },
-    onSuccess: (data) => {
-      console.log("Item added successfully:", data);
+      
+      const result = await response.json();
+      console.log("Item added successfully:", result);
+      
+      // Update cache and UI
       queryClient.invalidateQueries({ queryKey: ['/api/inventory'] });
+      
       toast({
         title: "Item Added",
         description: "The item has been added to your inventory.",
       });
+      
       form.reset();
       onSuccess();
-    },
-    onError: (error) => {
+    } catch (error) {
       console.error("Error adding inventory item:", error);
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to add item",
         variant: "destructive",
       });
-    },
-  });
-
-  const onSubmit = (data: FormValues) => {
-    console.log("Form submitted with data:", data);
-    mutate(data);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
   
   const selectQuickItem = (itemName: string) => {
@@ -139,7 +153,10 @@ export default function InventoryForm({ onCancel, onSuccess }: InventoryFormProp
       </div>
       
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <form 
+          onSubmit={form.handleSubmit(handleSubmit)}
+          className="space-y-4"
+        >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <FormField
               control={form.control}
@@ -224,10 +241,11 @@ export default function InventoryForm({ onCancel, onSuccess }: InventoryFormProp
           <div className="pt-2 border-t border-neutral-200">
             <Button 
               type="submit" 
-              disabled={isPending}
+              disabled={isSubmitting}
               className="w-full bg-primary hover:bg-primary/90"
+              onClick={() => console.log("Button clicked - form should submit")}
             >
-              {isPending ? (
+              {isSubmitting ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Adding...
