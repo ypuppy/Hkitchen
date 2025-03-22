@@ -11,6 +11,7 @@ import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { inventoryFormSchema } from "@shared/schema";
+import { Plus, X, Loader2, UtensilsCrossed, Apple, Beef, Egg, Milk, Carrot, Fish } from "lucide-react";
 
 interface InventoryFormProps {
   onCancel: () => void;
@@ -19,8 +20,23 @@ interface InventoryFormProps {
 
 type FormValues = z.infer<typeof inventoryFormSchema>;
 
+// Common food items for quick selection
+interface QuickItem {
+  name: string;
+  icon: React.ReactNode;
+}
+
 export default function InventoryForm({ onCancel, onSuccess }: InventoryFormProps) {
   const { toast } = useToast();
+  
+  const quickItems: QuickItem[] = [
+    { name: "Apple", icon: <Apple className="h-4 w-4" /> },
+    { name: "Beef", icon: <Beef className="h-4 w-4" /> },
+    { name: "Carrot", icon: <Carrot className="h-4 w-4" /> },
+    { name: "Egg", icon: <Egg className="h-4 w-4" /> },
+    { name: "Milk", icon: <Milk className="h-4 w-4" /> },
+    { name: "Fish", icon: <Fish className="h-4 w-4" /> },
+  ];
   
   const form = useForm<FormValues>({
     resolver: zodResolver(inventoryFormSchema),
@@ -57,10 +73,50 @@ export default function InventoryForm({ onCancel, onSuccess }: InventoryFormProp
   const onSubmit = (data: FormValues) => {
     mutate(data);
   };
+  
+  const selectQuickItem = (itemName: string) => {
+    form.setValue("name", itemName);
+  };
 
   return (
-    <div className="mb-6 bg-neutral-50 p-4 rounded-md border border-neutral-200">
-      <h3 className="text-lg font-medium mb-4 text-neutral-700">Add New Item</h3>
+    <div className="mb-6 bg-gradient-to-r from-emerald-50 to-green-50 p-6 rounded-xl border border-emerald-100 shadow-sm">
+      <div className="flex justify-between items-center mb-4">
+        <div className="flex items-center">
+          <div className="bg-primary text-white p-2 rounded-lg mr-3">
+            <UtensilsCrossed className="h-5 w-5" />
+          </div>
+          <h3 className="text-xl font-bold text-neutral-800">Add to Pantry</h3>
+        </div>
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          onClick={onCancel}
+          className="rounded-full hover:bg-red-100 hover:text-red-600"
+        >
+          <X className="h-5 w-5" />
+        </Button>
+      </div>
+      
+      {/* Quick add section */}
+      <div className="mb-5">
+        <p className="text-xs font-medium text-neutral-500 mb-2">Quick Add</p>
+        <div className="flex flex-wrap gap-2">
+          {quickItems.map((item, index) => (
+            <Button
+              key={index}
+              type="button"
+              variant="outline"
+              size="sm"
+              className="bg-white border-neutral-200 hover:border-primary hover:bg-primary/5"
+              onClick={() => selectQuickItem(item.name)}
+            >
+              {item.icon}
+              <span className="ml-1">{item.name}</span>
+            </Button>
+          ))}
+        </div>
+      </div>
+      
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -69,10 +125,11 @@ export default function InventoryForm({ onCancel, onSuccess }: InventoryFormProp
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Item Name</FormLabel>
+                  <FormLabel className="text-neutral-700">Item Name</FormLabel>
                   <FormControl>
                     <Input 
                       placeholder="e.g., Tomatoes" 
+                      className="bg-white border-neutral-200 focus:border-primary focus:ring-primary"
                       {...field} 
                     />
                   </FormControl>
@@ -87,14 +144,14 @@ export default function InventoryForm({ onCancel, onSuccess }: InventoryFormProp
                 name="quantity"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Quantity</FormLabel>
-                    <div className="flex">
+                    <FormLabel className="text-neutral-700">Quantity</FormLabel>
+                    <div className="flex shadow-sm">
                       <FormControl>
                         <Input 
                           type="number"
                           min="0.01"
                           step="0.01"
-                          className="rounded-r-none"
+                          className="rounded-r-none bg-white border-neutral-200"
                           {...field}
                           onChange={(e) => field.onChange(Number(e.target.value))}
                         />
@@ -110,7 +167,7 @@ export default function InventoryForm({ onCancel, onSuccess }: InventoryFormProp
                               defaultValue={field.value}
                             >
                               <FormControl>
-                                <SelectTrigger className="rounded-l-none">
+                                <SelectTrigger className="rounded-l-none border-l-0 bg-neutral-50">
                                   <SelectValue placeholder="Unit" />
                                 </SelectTrigger>
                               </FormControl>
@@ -123,6 +180,8 @@ export default function InventoryForm({ onCancel, onSuccess }: InventoryFormProp
                                 <SelectItem value="cups">cups</SelectItem>
                                 <SelectItem value="tbsp">tbsp</SelectItem>
                                 <SelectItem value="tsp">tsp</SelectItem>
+                                <SelectItem value="ml">ml</SelectItem>
+                                <SelectItem value="l">l</SelectItem>
                               </SelectContent>
                             </Select>
                             <FormMessage />
@@ -137,19 +196,23 @@ export default function InventoryForm({ onCancel, onSuccess }: InventoryFormProp
             </div>
           </div>
           
-          <div className="flex justify-end space-x-2">
-            <Button 
-              type="button" 
-              variant="outline" 
-              onClick={onCancel}
-            >
-              Cancel
-            </Button>
+          <div className="pt-2 border-t border-neutral-200">
             <Button 
               type="submit" 
               disabled={isPending}
+              className="w-full bg-primary hover:bg-primary/90"
             >
-              {isPending ? "Adding..." : "Add to Inventory"}
+              {isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Adding...
+                </>
+              ) : (
+                <>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add to Inventory
+                </>
+              )}
             </Button>
           </div>
         </form>

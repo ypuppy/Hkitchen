@@ -11,6 +11,8 @@ import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { InventoryItem, Recipe } from "@shared/schema";
+import { PlusCircle, ChefHat, Loader2, Sparkles, Utensils, BookOpen } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 export default function Home() {
   const { toast } = useToast();
@@ -119,69 +121,120 @@ export default function Home() {
   };
 
   return (
-    <div className="bg-neutral-100 font-sans text-neutral-900 min-h-screen">
+    <div className="bg-neutral-50 font-sans text-neutral-900 min-h-screen">
       <div className="container mx-auto px-4 py-6 max-w-6xl">
         <Header />
         
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           {/* Inventory Section */}
           <div className="lg:col-span-5 space-y-6">
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-semibold text-neutral-800">Food Inventory</h2>
-                <button 
+            <div className="bg-white rounded-xl shadow-sm border border-neutral-100 overflow-hidden">
+              <div className="bg-gradient-to-r from-emerald-500 to-emerald-600 px-6 py-4 flex justify-between items-center">
+                <div className="flex items-center">
+                  <div className="bg-white p-2 rounded-lg mr-3 shadow-sm">
+                    <Utensils className="h-5 w-5 text-emerald-600" />
+                  </div>
+                  <h2 className="text-xl font-bold text-white">My Pantry</h2>
+                </div>
+                <Button 
                   onClick={handleAddItemClick}
-                  className="bg-primary hover:bg-primary/90 text-primary-foreground px-4 py-2 rounded-md flex items-center transition-colors">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M10 3a1 1 0 0 1 1 1v5h5a1 1 0 1 1 0 2h-5v5a1 1 0 1 1-2 0v-5H4a1 1 0 1 1 0-2h5V4a1 1 0 0 1 1-1z" clipRule="evenodd"/>
-                  </svg>
+                  className="bg-white text-emerald-600 hover:bg-emerald-50 shadow-sm border border-emerald-200"
+                >
+                  <PlusCircle className="h-4 w-4 mr-2" />
                   Add Item
-                </button>
+                </Button>
               </div>
               
-              {showAddItemForm && (
-                <InventoryForm 
-                  onCancel={handleCancelAdd} 
-                  onSuccess={() => setShowAddItemForm(false)}
+              <div className="p-5">
+                {showAddItemForm && (
+                  <InventoryForm 
+                    onCancel={handleCancelAdd} 
+                    onSuccess={() => setShowAddItemForm(false)}
+                  />
+                )}
+                
+                {inventoryItems.length === 0 && !isLoadingInventory && !showAddItemForm && (
+                  <div className="text-center py-8 border-2 border-dashed border-neutral-200 rounded-lg bg-neutral-50">
+                    <Utensils className="h-12 w-12 mx-auto mb-3 text-neutral-300" />
+                    <h3 className="text-lg font-medium text-neutral-700">Your pantry is empty</h3>
+                    <p className="text-neutral-500 mt-1 mb-4">Add ingredients to get started with recipe suggestions</p>
+                    <Button onClick={handleAddItemClick} className="bg-primary hover:bg-primary/90">
+                      <PlusCircle className="h-4 w-4 mr-2" />
+                      Add First Item
+                    </Button>
+                  </div>
+                )}
+                
+                <InventoryList 
+                  items={inventoryItems} 
+                  isLoading={isLoadingInventory}
+                  onEdit={handleEditItem}
+                  onDelete={handleDeleteItem}
                 />
-              )}
-              
-              <InventoryList 
-                items={inventoryItems} 
-                isLoading={isLoadingInventory}
-                onEdit={handleEditItem}
-                onDelete={handleDeleteItem}
-              />
+                
+                {inventoryItems.length > 0 && !showAddItemForm && (
+                  <div className="mt-4 pt-4 border-t border-neutral-100 text-center">
+                    <button
+                      onClick={handleAddItemClick}
+                      className="text-sm text-primary font-medium hover:underline flex items-center justify-center mx-auto"
+                    >
+                      <PlusCircle className="h-3 w-3 mr-1" />
+                      Add more ingredients
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
           
           {/* Recipe Section */}
           <div className="lg:col-span-7 space-y-6">
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-semibold text-neutral-800">Recipe Suggestions</h2>
+            <div className="bg-white rounded-xl shadow-sm border border-neutral-100 overflow-hidden">
+              <div className="bg-gradient-to-r from-amber-500 to-orange-500 px-6 py-4 flex justify-between items-center">
+                <div className="flex items-center">
+                  <div className="bg-white p-2 rounded-lg mr-3 shadow-sm">
+                    <BookOpen className="h-5 w-5 text-amber-600" />
+                  </div>
+                  <h2 className="text-xl font-bold text-white">Recipe Suggestions</h2>
+                </div>
                 
-                <button 
+                <Button 
                   onClick={handleGenerateRecipes}
                   disabled={generateRecipesMutation.isPending || inventoryItems.length === 0}
-                  className="bg-[#FF9800] hover:bg-[#ff8f00] text-white px-4 py-2 rounded-md flex items-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                  className="bg-white text-amber-600 hover:bg-amber-50 shadow-sm border border-amber-200 disabled:opacity-70 disabled:bg-neutral-100 disabled:text-neutral-400 disabled:border-neutral-200"
+                >
                   {generateRecipesMutation.isPending ? (
-                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Generating...
+                    </>
                   ) : (
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M12.316 3.051a1 1 0 01.633 1.265l-4 12a1 1 0 11-1.898-.632l4-12a1 1 0 011.265-.633zM5.707 6.293a1 1 0 010 1.414L3.414 10l2.293 2.293a1 1 0 11-1.414 1.414l-3-3a1 1 0 010-1.414l3-3a1 1 0 011.414 0zm8.586 0a1 1 0 011.414 0l3 3a1 1 0 010 1.414l-3 3a1 1 0 11-1.414-1.414L16.586 10l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
-                    </svg>
+                    <>
+                      <Sparkles className="h-4 w-4 mr-2" />
+                      Generate Recipes
+                    </>
                   )}
-                  Generate Recipes
-                </button>
+                </Button>
               </div>
               
-              <RecipeList 
-                recipes={recipes}
-                isLoading={isLoadingRecipes || generateRecipesMutation.isPending}
-                onViewRecipe={handleViewRecipeDetails}
-                inventoryItems={inventoryItems}
-              />
+              <div className="p-5">
+                {inventoryItems.length === 0 && !isLoadingInventory && (
+                  <div className="text-center py-8 border-2 border-dashed border-neutral-200 rounded-lg bg-neutral-50">
+                    <ChefHat className="h-12 w-12 mx-auto mb-3 text-neutral-300" />
+                    <h3 className="text-lg font-medium text-neutral-700">No ingredients yet</h3>
+                    <p className="text-neutral-500 mt-1">Add ingredients to your inventory to get recipe suggestions</p>
+                  </div>
+                )}
+                
+                {inventoryItems.length > 0 && (
+                  <RecipeList 
+                    recipes={recipes}
+                    isLoading={isLoadingRecipes || generateRecipesMutation.isPending}
+                    onViewRecipe={handleViewRecipeDetails}
+                    inventoryItems={inventoryItems}
+                  />
+                )}
+              </div>
             </div>
           </div>
         </div>
