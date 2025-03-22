@@ -1,13 +1,25 @@
-import type { Express, Request, Response } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { ZodError } from "zod";
 import { inventoryFormSchema, insertRecipeSchema } from "@shared/schema";
 import { generateRecipes } from "./openai";
 import { fromZodError } from "zod-validation-error";
+import { setupAuth } from "./auth";
+
+// Authentication middleware to ensure the user is logged in
+const ensureAuthenticated = (req: Request, res: Response, next: NextFunction) => {
+  if (req.isAuthenticated()) {
+    return next();
+  }
+  res.status(401).json({ error: "Unauthorized - Please login first" });
+};
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // prefix all routes with /api
+  // Set up authentication
+  setupAuth(app);
+  
+  // Create HTTP server
   const httpServer = createServer(app);
 
   // Inventory routes

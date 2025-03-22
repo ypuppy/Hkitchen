@@ -4,18 +4,29 @@ import {
   type Recipe, 
   type InsertRecipe,
   type User, 
-  type InsertUser 
+  type InsertUser,
+  type UserFavorite,
+  type InsertUserFavorite,
+  users,
+  inventoryItems,
+  recipes,
+  userFavorites
 } from "@shared/schema";
+import { db } from "./db";
+import { and, eq } from "drizzle-orm";
+import session from "express-session";
+import connectPg from "connect-pg-simple";
+import { pool } from "./db";
 
 // Modify the interface with any CRUD methods you might need
 export interface IStorage {
-  // User methods (from original file)
+  // User methods
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   
   // Inventory methods
-  getInventoryItems(): Promise<InventoryItem[]>;
+  getInventoryItems(userId?: number): Promise<InventoryItem[]>;
   getInventoryItem(id: number): Promise<InventoryItem | undefined>;
   createInventoryItem(item: InsertInventoryItem): Promise<InventoryItem>;
   updateInventoryItem(id: number, item: InsertInventoryItem): Promise<InventoryItem | undefined>;
@@ -23,125 +34,205 @@ export interface IStorage {
   
   // Recipe methods
   getRecipes(): Promise<Recipe[]>;
-  getRecipe(id: number): Promise<Recipe | undefined>;
+  getRecipe(id: number, userId?: number): Promise<Recipe | undefined>;
   createRecipe(recipe: InsertRecipe): Promise<Recipe>;
   deleteRecipe(id: number): Promise<boolean>;
-  toggleFavoriteRecipe(id: number): Promise<Recipe | undefined>;
-  getFavoriteRecipes(): Promise<Recipe[]>;
+  toggleFavoriteRecipe(recipeId: number, userId: number): Promise<Recipe | undefined>;
+  getFavoriteRecipes(userId: number): Promise<Recipe[]>;
+  
+  // Session store
+  sessionStore: session.Store;
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<number, User>;
-  private inventoryItems: Map<number, InventoryItem>;
-  private recipes: Map<number, Recipe>;
-  private currentUserId: number;
-  private currentInventoryItemId: number;
-  private currentRecipeId: number;
+// Session store setup with PostgreSQL
+const PostgresSessionStore = connectPg(session);
+
+export class DatabaseStorage implements IStorage {
+  sessionStore: session.Store;
 
   constructor() {
-    this.users = new Map();
-    this.inventoryItems = new Map();
-    this.recipes = new Map();
-    this.currentUserId = 1;
-    this.currentInventoryItemId = 1;
-    this.currentRecipeId = 1;
+    this.sessionStore = new PostgresSessionStore({ 
+      pool,
+      createTableIfMissing: true,
+      tableName: 'session'
+    });
   }
 
-  // User methods (from original file)
+  // User methods
   async getUser(id: number): Promise<User | undefined> {
-    return this.users.get(id);
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user;
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user;
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const id = this.currentUserId++;
-    const user: User = { ...insertUser, id };
-    this.users.set(id, user);
+    const [user] = await db.insert(users).values(insertUser).returning();
     return user;
   }
 
   // Inventory methods
-  async getInventoryItems(): Promise<InventoryItem[]> {
-    return Array.from(this.inventoryItems.values());
+  async getInventoryItems(userId?: number): Promise<InventoryItem[]> {
+    if (userId) {
+      return await db.select().from(inventoryItems).where(eq(inventoryItems.userId, userId));
+    }
+    return await db.select().from(inventoryItems);
   }
 
   async getInventoryItem(id: number): Promise<InventoryItem | undefined> {
-    return this.inventoryItems.get(id);
+    const [item] = await db.select().from(inventoryItems).where(eq(inventoryItems.id, id));
+    return item;
   }
 
   async createInventoryItem(insertItem: InsertInventoryItem): Promise<InventoryItem> {
-    const id = this.currentInventoryItemId++;
-    const item: InventoryItem = { ...insertItem, id };
-    this.inventoryItems.set(id, item);
+    const [item] = await db.insert(inventoryItems).values(insertItem).returning();
     return item;
   }
 
   async updateInventoryItem(id: number, updateItem: InsertInventoryItem): Promise<InventoryItem | undefined> {
-    const existingItem = this.inventoryItems.get(id);
-    
-    if (!existingItem) {
-      return undefined;
-    }
-    
-    const updatedItem: InventoryItem = { ...existingItem, ...updateItem };
-    this.inventoryItems.set(id, updatedItem);
-    return updatedItem;
+    const [item] = await db
+      .update(inventoryItems)
+      .set(updateItem)
+      .where(eq(inventoryItems.id, id))
+      .returning();
+    return item;
   }
 
   async deleteInventoryItem(id: number): Promise<boolean> {
-    return this.inventoryItems.delete(id);
+    await db.delete(inventoryItems).where(eq(inventoryItems.id, id));
+    return true; // Assume successful deletion
   }
 
   // Recipe methods
   async getRecipes(): Promise<Recipe[]> {
-    return Array.from(this.recipes.values());
+    const allRecipes = await db.select().from(recipes);
+    return allRecipes;
   }
 
-  async getRecipe(id: number): Promise<Recipe | undefined> {
-    return this.recipes.get(id);
+  async getRecipe(id: number, userId?: number): Promise<Recipe | undefined> {
+    const [recipe] = await db.select().from(recipes).where(eq(recipes.id, id));
+    
+    if (!recipe || !userId) {
+      return recipe;
+    }
+    
+    // Check if this is a favorite recipe for the user
+    const [favorite] = await db
+      .select()
+      .from(userFavorites)
+      .where(
+        and(
+          eq(userFavorites.recipeId, id),
+          eq(userFavorites.userId, userId)
+        )
+      );
+      
+    return {
+      ...recipe,
+      isFavorite: !!favorite
+    };
   }
 
   async createRecipe(insertRecipe: InsertRecipe): Promise<Recipe> {
-    const id = this.currentRecipeId++;
-    const recipe: Recipe = { 
-      ...insertRecipe, 
-      id,
-      imageUrl: insertRecipe.imageUrl || null,
-      tags: insertRecipe.tags || null,
-      isFavorite: insertRecipe.isFavorite || false
+    const [recipe] = await db.insert(recipes).values(insertRecipe).returning();
+    return {
+      ...recipe,
+      isFavorite: false
     };
-    this.recipes.set(id, recipe);
-    return recipe;
   }
 
   async deleteRecipe(id: number): Promise<boolean> {
-    return this.recipes.delete(id);
+    // First delete any favorite entries for this recipe
+    await db.delete(userFavorites).where(eq(userFavorites.recipeId, id));
+    
+    // Then delete the recipe
+    await db.delete(recipes).where(eq(recipes.id, id));
+    return true; // Assume successful deletion
   }
 
-  async toggleFavoriteRecipe(id: number): Promise<Recipe | undefined> {
-    const recipe = this.recipes.get(id);
-    
+  async toggleFavoriteRecipe(recipeId: number, userId: number): Promise<Recipe | undefined> {
+    // Check if recipe exists
+    const recipe = await this.getRecipe(recipeId, userId);
     if (!recipe) {
       return undefined;
     }
     
-    const updatedRecipe: Recipe = { 
-      ...recipe, 
-      isFavorite: !recipe.isFavorite 
-    };
-    
-    this.recipes.set(id, updatedRecipe);
-    return updatedRecipe;
+    // Check if it's already a favorite
+    const [existingFavorite] = await db
+      .select()
+      .from(userFavorites)
+      .where(
+        and(
+          eq(userFavorites.recipeId, recipeId),
+          eq(userFavorites.userId, userId)
+        )
+      );
+      
+    if (existingFavorite) {
+      // Remove from favorites
+      await db
+        .delete(userFavorites)
+        .where(
+          and(
+            eq(userFavorites.recipeId, recipeId),
+            eq(userFavorites.userId, userId)
+          )
+        );
+        
+      return {
+        ...recipe,
+        isFavorite: false
+      };
+    } else {
+      // Add to favorites
+      await db
+        .insert(userFavorites)
+        .values({
+          userId,
+          recipeId
+        });
+        
+      return {
+        ...recipe,
+        isFavorite: true
+      };
+    }
   }
 
-  async getFavoriteRecipes(): Promise<Recipe[]> {
-    return Array.from(this.recipes.values()).filter(recipe => recipe.isFavorite);
+  async getFavoriteRecipes(userId: number): Promise<Recipe[]> {
+    // Get all favorite recipe IDs for the user
+    const favorites = await db
+      .select({
+        recipeId: userFavorites.recipeId
+      })
+      .from(userFavorites)
+      .where(eq(userFavorites.userId, userId));
+      
+    if (favorites.length === 0) {
+      return [];
+    }
+    
+    // Get all recipes that are favorites
+    const recipeIds = favorites.map(f => f.recipeId);
+    
+    // This is a simplified approach - in a real app, you might want to use a SQL IN clause
+    const favoriteRecipes: Recipe[] = [];
+    
+    for (const id of recipeIds) {
+      const recipe = await this.getRecipe(id);
+      if (recipe) {
+        favoriteRecipes.push({
+          ...recipe,
+          isFavorite: true
+        });
+      }
+    }
+    
+    return favoriteRecipes;
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();
