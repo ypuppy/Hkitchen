@@ -67,8 +67,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "User not authenticated" });
       }
       
-      // Validate request body
+      console.log("Received inventory item request:", req.body);
+      
+      // Validate request body with the form schema that handles quantity properly
       const validatedItem = inventoryFormSchema.parse(req.body);
+      
+      console.log("Validated item:", validatedItem);
       
       // Associate the item with the current user
       const itemWithUserId = {
@@ -76,11 +80,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         userId
       };
       
+      console.log("Creating inventory item with user ID:", itemWithUserId);
+      
       const newItem = await storage.createInventoryItem(itemWithUserId);
+      console.log("New item created:", newItem);
       res.status(201).json(newItem);
     } catch (error) {
       if (error instanceof ZodError) {
         const validationError = fromZodError(error);
+        console.error("Validation error:", validationError);
         return res.status(400).json({ error: validationError.message });
       }
       console.error("Error creating inventory item:", error);

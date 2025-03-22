@@ -49,10 +49,17 @@ export default function InventoryForm({ onCancel, onSuccess }: InventoryFormProp
 
   const { mutate, isPending } = useMutation({
     mutationFn: async (data: FormValues) => {
-      const response = await apiRequest("POST", "/api/inventory", data);
+      // Make sure quantity is a string as expected by the API
+      const formattedData = {
+        ...data,
+        quantity: data.quantity.toString(),
+      };
+      console.log("Submitting inventory item:", formattedData);
+      const response = await apiRequest("POST", "/api/inventory", formattedData);
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log("Item added successfully:", data);
       queryClient.invalidateQueries({ queryKey: ['/api/inventory'] });
       toast({
         title: "Item Added",
@@ -62,6 +69,7 @@ export default function InventoryForm({ onCancel, onSuccess }: InventoryFormProp
       onSuccess();
     },
     onError: (error) => {
+      console.error("Error adding inventory item:", error);
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to add item",
