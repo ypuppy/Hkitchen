@@ -29,11 +29,18 @@ export default function RecipeDetail({ recipe, onClose, inventoryItems }: Recipe
   // Generate a placeholder image URL based on the recipe title
   const imageUrl = recipe.imageUrl || `https://source.unsplash.com/1200x800/?food,${encodeURIComponent(recipe.title)}`;
   
-  // Check if ingredient is in inventory
+  // Improved check if ingredient is in inventory (matches ingredient names more flexibly)
   const isIngredientInInventory = (ingredientName: string): boolean => {
-    return inventoryItems.some(item => 
-      ingredientName.toLowerCase().includes(item.name.toLowerCase())
-    );
+    if (!ingredientName || inventoryItems.length === 0) {
+      return false;
+    }
+    
+    const normalizedName = ingredientName.toLowerCase().trim();
+    
+    return inventoryItems.some(item => {
+      const normalizedItem = item.name.toLowerCase().trim();
+      return normalizedName.includes(normalizedItem) || normalizedItem.includes(normalizedName);
+    });
   };
   
   // Toggle favorite mutation
@@ -75,13 +82,19 @@ export default function RecipeDetail({ recipe, onClose, inventoryItems }: Recipe
   
   return (
     <Dialog open={true} onOpenChange={() => onClose()}>
-      <DialogContent className="max-w-3xl w-full max-h-[90vh] p-0 overflow-y-auto">
+      <DialogContent className="max-w-3xl w-full max-h-[90vh] p-0 overflow-y-auto bg-white">
         <div className="relative">
-          <img 
-            src={imageUrl}
-            alt={recipe.title} 
-            className="w-full h-64 object-cover rounded-t-lg"
-          />
+          <div className="w-full h-64 overflow-hidden rounded-t-lg">
+            <img 
+              src={imageUrl}
+              alt={recipe.title} 
+              className="w-full h-64 object-cover"
+              onError={(e) => {
+                const target = e.target as HTMLImageElement;
+                target.src = `https://source.unsplash.com/1200x800/?food,${encodeURIComponent(recipe.title)}`;
+              }}
+            />
+          </div>
           <Button 
             variant="ghost" 
             className="absolute top-4 right-4 bg-neutral-800 bg-opacity-50 hover:bg-opacity-70 text-white p-2 rounded-full transition-colors"
@@ -106,7 +119,7 @@ export default function RecipeDetail({ recipe, onClose, inventoryItems }: Recipe
               </div>
             </div>
             <div className="mt-3 md:mt-0">
-              <Badge className="bg-primary-100 text-primary-800 px-3 py-1 rounded-full text-sm font-medium">
+              <Badge className="bg-primary/10 text-primary px-3 py-1 rounded-full text-sm font-medium border-none">
                 {recipe.matchedIngredients} ingredients matched
               </Badge>
             </div>
@@ -136,9 +149,9 @@ export default function RecipeDetail({ recipe, onClose, inventoryItems }: Recipe
                   </li>
                 ))}
               </ul>
-              <div className="mt-4 p-3 bg-yellow-50 rounded-md border border-yellow-200">
-                <p className="text-sm text-yellow-800">
-                  <span className="font-medium">Note:</span> Items in gray are missing from your inventory and need to be purchased.
+              <div className="mt-4 p-3 bg-primary/5 rounded-md border border-primary/20">
+                <p className="text-sm text-neutral-700">
+                  <span className="font-medium">Shopping Note:</span> Items in gray are missing from your inventory and need to be purchased.
                 </p>
               </div>
             </div>
@@ -148,7 +161,7 @@ export default function RecipeDetail({ recipe, onClose, inventoryItems }: Recipe
               <ol className="space-y-4">
                 {instructions.map((instruction) => (
                   <li key={instruction.step} className="flex">
-                    <span className="bg-primary-100 text-primary-800 w-6 h-6 rounded-full flex items-center justify-center font-medium text-sm mr-3 flex-shrink-0 mt-0.5">
+                    <span className="bg-primary/10 text-primary w-6 h-6 rounded-full flex items-center justify-center font-medium text-sm mr-3 flex-shrink-0 mt-0.5">
                       {instruction.step}
                     </span>
                     <p className="text-neutral-700">{instruction.instruction}</p>
