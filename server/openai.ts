@@ -39,7 +39,8 @@ const RecipeSchema = z.object({
     z.object({
       name: z.string(),
       quantity: z.string(),
-      unit: z.string(),
+      // Make unit optional with a default empty string
+      unit: z.string().nullable().transform(val => val || ""),
       inInventory: z.boolean(),
     })
   ),
@@ -85,31 +86,38 @@ export async function generateRecipes(inventoryItems: InventoryItem[]): Promise<
       9. Total number of ingredients needed
       10. Relevant tags (like "Quick", "Vegetarian", "Low Carb", etc.)
       
-      Format your response as a JSON array where each recipe is an object with the following structure:
+      IMPORTANT: Format your response as a JSON object with a "recipes" array containing recipe objects with the following structure:
+      
       {
-        "title": "Recipe Title",
-        "description": "Brief description",
-        "cookTime": 30,
-        "difficulty": "Easy",
-        "servings": 4,
-        "ingredients": [
+        "recipes": [
           {
-            "name": "ingredient name",
-            "quantity": "amount as string",
-            "unit": "unit of measurement",
-            "inInventory": true/false
+            "title": "Recipe Title",
+            "description": "Brief description",
+            "cookTime": 30,
+            "difficulty": "Easy",
+            "servings": 4,
+            "ingredients": [
+              {
+                "name": "ingredient name",
+                "quantity": "amount as string",
+                "unit": "unit of measurement or empty string if not applicable",
+                "inInventory": true
+              }
+            ],
+            "instructions": [
+              {
+                "step": 1,
+                "instruction": "First step instruction"
+              }
+            ],
+            "matchedIngredients": 5,
+            "totalIngredients": 8,
+            "tags": ["Quick", "Easy"]
           }
-        ],
-        "instructions": [
-          {
-            "step": 1,
-            "instruction": "First step instruction"
-          }
-        ],
-        "matchedIngredients": 5,
-        "totalIngredients": 8,
-        "tags": ["Quick", "Easy"]
+        ]
       }
+      
+      IMPORTANT: Always provide a "unit" property for each ingredient, using "" (empty string) if no unit is needed.
     `;
 
     const response = await openai.chat.completions.create({

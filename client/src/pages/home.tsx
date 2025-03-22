@@ -23,12 +23,12 @@ export default function Home() {
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
 
   // Fetch inventory items
-  const { data: inventoryItems = [], isLoading: isLoadingInventory } = useQuery({
+  const { data: inventoryItems = [], isLoading: isLoadingInventory } = useQuery<InventoryItem[]>({
     queryKey: ['/api/inventory'],
   });
 
   // Fetch recipes
-  const { data: recipes = [], isLoading: isLoadingRecipes } = useQuery({
+  const { data: recipes = [], isLoading: isLoadingRecipes } = useQuery<Recipe[]>({
     queryKey: ['/api/recipes'],
   });
 
