@@ -48,44 +48,58 @@ export default function InventoryForm({ onCancel, onSuccess }: InventoryFormProp
     },
   });
   
-  // Manual form submission without using the mutation hook
+  // Simple direct form submission function 
   const handleSubmit = async (data: FormValues) => {
-    console.log("Form submitted with data:", data);
+    console.log("🚨 Form submitted with data:", data);
     
     if (isSubmitting) {
-      console.log("Already submitting, skipping");
+      console.log("🚫 Already submitting, skipping");
       return;
     }
     
+    // Set submitting state to show loading indicator
     setIsSubmitting(true);
     
     try {
-      // Make sure quantity is a string
-      const formattedData = {
+      // Ensure quantity is a string
+      const payload = {
         ...data,
         quantity: data.quantity.toString(),
       };
       
-      console.log("Sending inventory data to API:", formattedData);
+      console.log("📤 Sending inventory data to API:", payload);
       
+      // Direct fetch call to the API
       const response = await fetch("/api/inventory", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(formattedData),
-        credentials: "same-origin",
+        body: JSON.stringify(payload),
+        credentials: "include", // Include cookies for session auth
       });
       
-      console.log("Response status:", response.status);
+      console.log("📥 API Response status:", response.status);
       
+      // Handle error responses
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to add item");
+        const errorText = await response.text();
+        console.error("API Error response:", errorText);
+        let errorMessage = "Failed to add item";
+        
+        try {
+          const errorData = JSON.parse(errorText);
+          errorMessage = errorData.error || errorMessage;
+        } catch (e) {
+          console.error("Failed to parse error response:", e);
+        }
+        
+        throw new Error(errorMessage);
       }
       
+      // Handle successful response
       const result = await response.json();
-      console.log("Item added successfully:", result);
+      console.log("✅ Item added successfully:", result);
       
       // Update cache and UI
       queryClient.invalidateQueries({ queryKey: ['/api/inventory'] });
@@ -95,10 +109,11 @@ export default function InventoryForm({ onCancel, onSuccess }: InventoryFormProp
         description: "The item has been added to your inventory.",
       });
       
+      // Reset form and notify parent component
       form.reset();
       onSuccess();
     } catch (error) {
-      console.error("Error adding inventory item:", error);
+      console.error("❌ Error adding inventory item:", error);
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to add item",
@@ -154,7 +169,7 @@ export default function InventoryForm({ onCancel, onSuccess }: InventoryFormProp
       
       <Form {...form}>
         <form 
-          onSubmit={form.handleSubmit(handleSubmit)}
+          onSubmit={form.handleSubmit(handleSubmit)} 
           className="space-y-4"
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -243,7 +258,6 @@ export default function InventoryForm({ onCancel, onSuccess }: InventoryFormProp
               type="submit" 
               disabled={isSubmitting}
               className="w-full bg-primary hover:bg-primary/90"
-              onClick={() => console.log("Button clicked - form should submit")}
             >
               {isSubmitting ? (
                 <>
