@@ -24,22 +24,22 @@ export async function apiRequest(
 }
 
 type UnauthorizedBehavior = "returnNull" | "throw";
-export const getQueryFn: <TData>(options: {
+export const getQueryFn = <TData = unknown>(options: {
   on401: UnauthorizedBehavior;
-}) => QueryFunction<TData> =
-  ({ on401: unauthorizedBehavior }) =>
-  async ({ queryKey }) => {
+}): QueryFunction<TData | null> => {
+  return async ({ queryKey }) => {
     const res = await fetch(queryKey[0] as string, {
       credentials: "include",
     });
 
-    if (unauthorizedBehavior === "returnNull" && res.status === 401) {
+    if (options.on401 === "returnNull" && res.status === 401) {
       return null;
     }
 
     await throwIfResNotOk(res);
     return await res.json() as TData;
   };
+};
 
 export const queryClient = new QueryClient({
   defaultOptions: {
