@@ -49,14 +49,26 @@ export default function InventoryForm({ onCancel, onSuccess }: InventoryFormProp
 
   const { mutate, isPending } = useMutation({
     mutationFn: async (data: FormValues) => {
-      // Make sure quantity is a string as expected by the API
-      const formattedData = {
-        ...data,
-        quantity: data.quantity.toString(),
-      };
-      console.log("Submitting inventory item:", formattedData);
-      const response = await apiRequest("POST", "/api/inventory", formattedData);
-      return response.json();
+      try {
+        // Make sure quantity is a string as expected by the API
+        const formattedData = {
+          ...data,
+          quantity: data.quantity.toString(),
+        };
+        
+        console.log("Submitting inventory item:", formattedData);
+        const response = await apiRequest("POST", "/api/inventory", formattedData);
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || "Failed to add item");
+        }
+        
+        return response.json();
+      } catch (error) {
+        console.error("Error in mutation function:", error);
+        throw error; // Re-throw to be caught by onError
+      }
     },
     onSuccess: (data) => {
       console.log("Item added successfully:", data);
@@ -79,6 +91,7 @@ export default function InventoryForm({ onCancel, onSuccess }: InventoryFormProp
   });
 
   const onSubmit = (data: FormValues) => {
+    console.log("Form submitted with data:", data);
     mutate(data);
   };
   
@@ -160,8 +173,12 @@ export default function InventoryForm({ onCancel, onSuccess }: InventoryFormProp
                           min="0.01"
                           step="0.01"
                           className="rounded-r-none bg-white border-neutral-200"
-                          {...field}
-                          onChange={(e) => field.onChange(e.target.value)}
+                          value={field.value}
+                          onChange={(e) => {
+                            console.log("Input value changed:", e.target.value);
+                            field.onChange(e.target.value);
+                          }}
+                          onBlur={field.onBlur}
                         />
                       </FormControl>
                       

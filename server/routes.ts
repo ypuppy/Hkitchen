@@ -69,30 +69,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log("Received inventory item request:", req.body);
       
-      // Validate request body with the form schema that handles quantity properly
-      const validatedItem = inventoryFormSchema.parse(req.body);
-      
-      console.log("Validated item:", validatedItem);
-      
-      // Associate the item with the current user
-      const itemWithUserId = {
-        ...validatedItem,
-        userId
-      };
-      
-      console.log("Creating inventory item with user ID:", itemWithUserId);
-      
-      const newItem = await storage.createInventoryItem(itemWithUserId);
-      console.log("New item created:", newItem);
-      res.status(201).json(newItem);
-    } catch (error) {
-      if (error instanceof ZodError) {
-        const validationError = fromZodError(error);
-        console.error("Validation error:", validationError);
-        return res.status(400).json({ error: validationError.message });
+      try {
+        // Validate request body with the form schema that handles quantity properly
+        const validatedItem = inventoryFormSchema.parse(req.body);
+        
+        console.log("Validated item:", validatedItem);
+        
+        // Associate the item with the current user
+        const itemWithUserId = {
+          ...validatedItem,
+          userId
+        };
+        
+        console.log("Creating inventory item with user ID:", itemWithUserId);
+        
+        const newItem = await storage.createInventoryItem(itemWithUserId);
+        console.log("New item created:", newItem);
+        res.status(201).json(newItem);
+      } catch (validationError) {
+        if (validationError instanceof ZodError) {
+          const parsedError = fromZodError(validationError);
+          console.error("Validation error:", parsedError.message);
+          return res.status(400).json({ error: parsedError.message });
+        }
+        throw validationError; // Re-throw if it's not a validation error
       }
+    } catch (error) {
       console.error("Error creating inventory item:", error);
-      res.status(500).json({ error: "Failed to create inventory item" });
+      res.status(500).json({ error: error instanceof Error ? error.message : "Failed to create inventory item" });
     }
   });
 
@@ -114,29 +118,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Item not found" });
       }
 
-      // Validate request body
-      const validatedItem = inventoryFormSchema.parse(req.body);
-      
-      // Preserve the user ID in the updated item
-      const itemWithUserId = {
-        ...validatedItem,
-        userId
-      };
-      
-      const updatedItem = await storage.updateInventoryItem(id, itemWithUserId);
-      
-      if (!updatedItem) {
-        return res.status(404).json({ error: "Item not found" });
-      }
+      try {
+        console.log("Updating inventory item, received data:", req.body);
+        
+        // Validate request body
+        const validatedItem = inventoryFormSchema.parse(req.body);
+        
+        console.log("Validated item data:", validatedItem);
+        
+        // Preserve the user ID in the updated item
+        const itemWithUserId = {
+          ...validatedItem,
+          userId
+        };
+        
+        const updatedItem = await storage.updateInventoryItem(id, itemWithUserId);
+        
+        if (!updatedItem) {
+          return res.status(404).json({ error: "Item not found" });
+        }
 
-      res.json(updatedItem);
-    } catch (error) {
-      if (error instanceof ZodError) {
-        const validationError = fromZodError(error);
-        return res.status(400).json({ error: validationError.message });
+        console.log("Item updated successfully:", updatedItem);
+        res.json(updatedItem);
+      } catch (validationError) {
+        if (validationError instanceof ZodError) {
+          const parsedError = fromZodError(validationError);
+          console.error("Validation error:", parsedError.message);
+          return res.status(400).json({ error: parsedError.message });
+        }
+        throw validationError; // Re-throw if it's not a validation error
       }
+    } catch (error) {
       console.error("Error updating inventory item:", error);
-      res.status(500).json({ error: "Failed to update inventory item" });
+      res.status(500).json({ error: error instanceof Error ? error.message : "Failed to update inventory item" });
     }
   });
 
