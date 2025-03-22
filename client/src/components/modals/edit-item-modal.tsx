@@ -27,7 +27,7 @@ export default function EditItemModal({ item, onClose }: EditItemModalProps) {
     resolver: zodResolver(inventoryFormSchema),
     defaultValues: {
       name: item.name,
-      quantity: Number(item.quantity),
+      quantity: item.quantity, // Use string directly as schema expects it
       unit: item.unit,
     },
   });
@@ -95,7 +95,7 @@ export default function EditItemModal({ item, onClose }: EditItemModalProps) {
                         step="0.01"
                         className="rounded-r-none"
                         {...field}
-                        onChange={(e) => field.onChange(Number(e.target.value))}
+                        onChange={(e) => field.onChange(e.target.value)}
                       />
                     </FormControl>
                     

@@ -42,7 +42,7 @@ export default function InventoryForm({ onCancel, onSuccess }: InventoryFormProp
     resolver: zodResolver(inventoryFormSchema),
     defaultValues: {
       name: "",
-      quantity: 1,
+      quantity: "1", // Using string since the schema expects a string
       unit: "pcs",
     },
   });
@@ -153,7 +153,7 @@ export default function InventoryForm({ onCancel, onSuccess }: InventoryFormProp
                           step="0.01"
                           className="rounded-r-none bg-white border-neutral-200"
                           {...field}
-                          onChange={(e) => field.onChange(Number(e.target.value))}
+                          onChange={(e) => field.onChange(e.target.value)}
                         />
                       </FormControl>
                       
