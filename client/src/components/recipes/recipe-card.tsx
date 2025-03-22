@@ -1,6 +1,9 @@
 import { Recipe, InventoryItem, RecipeIngredient } from "@shared/schema";
 import { Badge } from "@/components/ui/badge";
-import { Clock, ChefHat, CheckCircle2, Flame } from "lucide-react";
+import { Clock, ChefHat, CheckCircle2, Flame, Star } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 interface RecipeCardProps {
   recipe: Recipe;

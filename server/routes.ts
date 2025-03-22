@@ -146,7 +146,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Recipe routes
-  app.get("/api/recipes", async (req: Request, res: Response) => {
+  
+  // Get all favorite recipes - this needs to be before the /:id route to avoid conflicts
+  app.get("/api/recipes/favorites", async (_req: Request, res: Response) => {
+    try {
+      const favoriteRecipes = await storage.getFavoriteRecipes();
+      
+      // Parse JSON strings back to objects
+      const formattedRecipes = favoriteRecipes.map(recipe => ({
+        ...recipe,
+        ingredients: JSON.parse(recipe.ingredients),
+        instructions: JSON.parse(recipe.instructions)
+      }));
+      
+      res.json(formattedRecipes);
+    } catch (error) {
+      console.error("Error retrieving favorite recipes:", error);
+      res.status(500).json({ error: "Failed to retrieve favorite recipes" });
+    }
+  });
+
+  // Get all recipes
+  app.get("/api/recipes", async (_req: Request, res: Response) => {
     try {
       const recipes = await storage.getRecipes();
       
@@ -164,6 +185,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get recipe by ID
   app.get("/api/recipes/:id", async (req: Request, res: Response) => {
     try {
       const id = Number(req.params.id);
@@ -187,6 +209,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error getting recipe:", error);
       res.status(500).json({ error: "Failed to retrieve recipe" });
+    }
+  });
+
+  // Toggle favorite status for a recipe
+  app.put("/api/recipes/:id/favorite", async (req: Request, res: Response) => {
+    try {
+      const id = Number(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "Invalid ID format" });
+      }
+      
+      const updatedRecipe = await storage.toggleFavoriteRecipe(id);
+      
+      if (!updatedRecipe) {
+        return res.status(404).json({ error: "Recipe not found" });
+      }
+      
+      // Parse JSON strings back to objects
+      const formattedRecipe = {
+        ...updatedRecipe,
+        ingredients: JSON.parse(updatedRecipe.ingredients),
+        instructions: JSON.parse(updatedRecipe.instructions)
+      };
+      
+      res.json(formattedRecipe);
+    } catch (error) {
+      console.error("Error toggling favorite status:", error);
+      res.status(500).json({ error: "Failed to update favorite status" });
     }
   });
 

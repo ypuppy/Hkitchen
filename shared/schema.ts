@@ -20,7 +20,7 @@ export type User = typeof users.$inferSelect;
 export const inventoryItems = pgTable("inventory_items", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
-  quantity: numeric("quantity").notNull(),
+  quantity: text("quantity").notNull(),
   unit: text("unit").notNull(),
 });
 
@@ -71,7 +71,8 @@ export type Recipe = typeof recipes.$inferSelect;
 // Extended schema for inventory form validation
 export const inventoryFormSchema = insertInventoryItemSchema.extend({
   name: z.string().min(1, "Item name is required"),
-  quantity: z.coerce.number().min(0.01, "Quantity must be greater than 0"),
+  quantity: z.coerce.number().min(0.01, "Quantity must be greater than 0")
+    .transform(val => val.toString()), // Convert number to string for storage
   unit: z.string().min(1, "Unit is required"),
 });
 
