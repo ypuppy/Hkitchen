@@ -68,10 +68,12 @@ export default function AuthPage() {
   });
 
   const onLoginSubmit = (data: LoginFormValues) => {
+    console.log("Login submission:", data);
     loginMutation.mutate(data);
   };
 
   const onRegisterSubmit = (data: RegisterFormValues) => {
+    console.log("Register submission:", data);
     // Remove confirmPassword as it's not in the API schema
     const { confirmPassword, ...registerData } = data;
     registerMutation.mutate(registerData);

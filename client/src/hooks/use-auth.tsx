@@ -45,10 +45,24 @@ function AuthProvider({ children }: { children: ReactNode }) {
   // Login mutation
   const loginMutation = useMutation<SelectUser, Error, LoginInput>({
     mutationFn: async (credentials) => {
-      const res = await apiRequest("POST", "/api/login", credentials);
-      return await res.json();
+      console.log("Login mutation called with:", credentials);
+      try {
+        const res = await apiRequest("POST", "/api/login", credentials);
+        if (!res.ok) {
+          const errorText = await res.text();
+          console.error("Login failed with status:", res.status, errorText);
+          throw new Error(errorText || "Login failed. Please check your credentials.");
+        }
+        const userData = await res.json();
+        console.log("Login successful, received user data:", userData);
+        return userData;
+      } catch (error) {
+        console.error("Login error:", error);
+        throw error;
+      }
     },
     onSuccess: (userData) => {
+      console.log("Login mutation success, setting user data:", userData);
       queryClient.setQueryData(["/api/user"], userData);
       toast({
         title: "Login successful",
@@ -56,9 +70,10 @@ function AuthProvider({ children }: { children: ReactNode }) {
       });
     },
     onError: (error) => {
+      console.error("Login mutation error:", error);
       toast({
         title: "Login failed",
-        description: error.message,
+        description: error.message || "An error occurred during login",
         variant: "destructive",
       });
     },
@@ -67,10 +82,24 @@ function AuthProvider({ children }: { children: ReactNode }) {
   // Register mutation
   const registerMutation = useMutation<SelectUser, Error, InsertUser>({
     mutationFn: async (userData) => {
-      const res = await apiRequest("POST", "/api/register", userData);
-      return await res.json();
+      console.log("Register mutation called with:", userData);
+      try {
+        const res = await apiRequest("POST", "/api/register", userData);
+        if (!res.ok) {
+          const errorText = await res.text();
+          console.error("Registration failed with status:", res.status, errorText);
+          throw new Error(errorText || "Registration failed. Please try a different username.");
+        }
+        const newUserData = await res.json();
+        console.log("Registration successful, received user data:", newUserData);
+        return newUserData;
+      } catch (error) {
+        console.error("Registration error:", error);
+        throw error;
+      }
     },
     onSuccess: (userData) => {
+      console.log("Registration mutation success, setting user data:", userData);
       queryClient.setQueryData(["/api/user"], userData);
       toast({
         title: "Registration successful",
@@ -78,9 +107,10 @@ function AuthProvider({ children }: { children: ReactNode }) {
       });
     },
     onError: (error) => {
+      console.error("Registration mutation error:", error);
       toast({
         title: "Registration failed",
-        description: error.message,
+        description: error.message || "An error occurred during registration",
         variant: "destructive",
       });
     },
