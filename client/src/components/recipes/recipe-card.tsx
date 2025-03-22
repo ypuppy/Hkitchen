@@ -73,8 +73,23 @@ export default function RecipeCard({ recipe, inventoryItems, onClick }: RecipeCa
   const mainIngredients = getMainIngredients(recipe.ingredients);
   const matchPercentage = calculateMatchPercentage();
   
-  // Generate a placeholder image URL based on the recipe title
-  const imageUrl = recipe.imageUrl || `https://source.unsplash.com/500x300/?food,${encodeURIComponent(recipe.title.replace(/\s+/g, ','))}`;
+  // Generate image URL with local images or fallback to placeholder
+  const getImageUrl = () => {
+    // If recipe has an imageUrl field, use that
+    if (recipe.imageUrl) {
+      return recipe.imageUrl;
+    }
+    
+    // Check if we have a local image for this recipe by ID
+    const localImagePath = `/images/recipe-${recipe.id}.jpg`;
+    
+    // Fallback to Unsplash for placeholder images
+    const unsplashUrl = `https://source.unsplash.com/500x300/?food,${encodeURIComponent(recipe.title.replace(/\s+/g, ','))}`;
+    
+    return localImagePath;
+  };
+  
+  const imageUrl = getImageUrl();
   
   // Set difficulty badge style
   const getDifficultyStyle = (difficulty: string) => {
@@ -120,6 +135,10 @@ export default function RecipeCard({ recipe, inventoryItems, onClick }: RecipeCa
             alt={recipe.title} 
             className="w-full h-full object-cover transition-transform duration-700 hover:scale-110"
             loading="lazy"
+            onError={(e) => {
+              const target = e.target as HTMLImageElement;
+              target.src = `https://source.unsplash.com/500x300/?food,${encodeURIComponent(recipe.title.replace(/\s+/g, ','))}`;
+            }}
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent pointer-events-none" />
           

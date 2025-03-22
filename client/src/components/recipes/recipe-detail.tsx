@@ -26,8 +26,23 @@ export default function RecipeDetail({ recipe, onClose, inventoryItems }: Recipe
     ? JSON.parse(recipe.instructions) 
     : recipe.instructions as RecipeInstruction[];
   
-  // Generate a placeholder image URL based on the recipe title
-  const imageUrl = recipe.imageUrl || `https://source.unsplash.com/1200x800/?food,${encodeURIComponent(recipe.title)}`;
+  // Generate image URL, checking for local images first
+  const getImageUrl = () => {
+    // If recipe has an imageUrl field, use that
+    if (recipe.imageUrl) {
+      return recipe.imageUrl;
+    }
+    
+    // Check if we have a local image for this recipe by ID
+    const localImagePath = `/images/recipe-${recipe.id}.jpg`;
+    
+    // Fallback to Unsplash for placeholder images
+    const unsplashUrl = `https://source.unsplash.com/1200x800/?food,${encodeURIComponent(recipe.title)}`;
+    
+    return localImagePath;
+  };
+  
+  const imageUrl = getImageUrl();
   
   // Improved check if ingredient is in inventory (matches ingredient names more flexibly)
   const isIngredientInInventory = (ingredientName: string): boolean => {
@@ -82,7 +97,7 @@ export default function RecipeDetail({ recipe, onClose, inventoryItems }: Recipe
   
   return (
     <Dialog open={true} onOpenChange={() => onClose()}>
-      <DialogContent className="max-w-3xl w-full max-h-[90vh] p-0 overflow-y-auto bg-white">
+      <DialogContent className="max-w-3xl w-full max-h-[90vh] p-0 overflow-y-auto bg-white" aria-describedby="recipe-details-description">
         <div className="relative">
           <div className="w-full h-64 overflow-hidden rounded-t-lg">
             <img 
@@ -126,7 +141,7 @@ export default function RecipeDetail({ recipe, onClose, inventoryItems }: Recipe
           </div>
           
           <div className="mb-6">
-            <p className="text-neutral-700">{recipe.description}</p>
+            <p id="recipe-details-description" className="text-neutral-700">{recipe.description}</p>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
