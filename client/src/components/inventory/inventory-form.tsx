@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
+import { useAuth } from "@/hooks/use-auth";
 import { Plus, X, Loader2, UtensilsCrossed, Apple, Beef, Egg, Milk, Carrot, Fish } from "lucide-react";
 
 interface InventoryFormProps {
@@ -19,6 +20,7 @@ interface QuickItem {
 
 export default function InventoryForm({ onCancel, onSuccess }: InventoryFormProps) {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [name, setName] = useState("");
   const [quantity, setQuantity] = useState("1");
@@ -87,10 +89,21 @@ export default function InventoryForm({ onCancel, onSuccess }: InventoryFormProp
     setIsSubmitting(true);
     
     try {
+      if (!user?.id) {
+        console.error("❌ User ID not available");
+        toast({
+          title: "Error",
+          description: "You must be logged in to add items to your inventory",
+          variant: "destructive",
+        });
+        return;
+      }
+      
       const payload = {
         name,
         quantity,
-        unit
+        unit,
+        userId: user.id
       };
       
       console.log("📤 Sending inventory data to API:", payload);
