@@ -47,6 +47,7 @@ export const recipes = pgTable("recipes", {
   matchedIngredients: integer("matched_ingredients").notNull(),
   totalIngredients: integer("total_ingredients").notNull(),
   tags: text("tags").array(), // Store categories like "Quick", "Vegetarian", etc.
+  isFavorite: boolean("is_favorite").default(false).notNull(),
 });
 
 export const insertRecipeSchema = createInsertSchema(recipes).pick({
@@ -61,6 +62,7 @@ export const insertRecipeSchema = createInsertSchema(recipes).pick({
   matchedIngredients: true,
   totalIngredients: true,
   tags: true,
+  isFavorite: true,
 });
 
 export type InsertRecipe = z.infer<typeof insertRecipeSchema>;

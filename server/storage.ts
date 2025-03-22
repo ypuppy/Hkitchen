@@ -26,6 +26,8 @@ export interface IStorage {
   getRecipe(id: number): Promise<Recipe | undefined>;
   createRecipe(recipe: InsertRecipe): Promise<Recipe>;
   deleteRecipe(id: number): Promise<boolean>;
+  toggleFavoriteRecipe(id: number): Promise<Recipe | undefined>;
+  getFavoriteRecipes(): Promise<Recipe[]>;
 }
 
 export class MemStorage implements IStorage {
@@ -106,13 +108,39 @@ export class MemStorage implements IStorage {
 
   async createRecipe(insertRecipe: InsertRecipe): Promise<Recipe> {
     const id = this.currentRecipeId++;
-    const recipe: Recipe = { ...insertRecipe, id };
+    const recipe: Recipe = { 
+      ...insertRecipe, 
+      id,
+      imageUrl: insertRecipe.imageUrl || null,
+      tags: insertRecipe.tags || null,
+      isFavorite: insertRecipe.isFavorite || false
+    };
     this.recipes.set(id, recipe);
     return recipe;
   }
 
   async deleteRecipe(id: number): Promise<boolean> {
     return this.recipes.delete(id);
+  }
+
+  async toggleFavoriteRecipe(id: number): Promise<Recipe | undefined> {
+    const recipe = this.recipes.get(id);
+    
+    if (!recipe) {
+      return undefined;
+    }
+    
+    const updatedRecipe: Recipe = { 
+      ...recipe, 
+      isFavorite: !recipe.isFavorite 
+    };
+    
+    this.recipes.set(id, updatedRecipe);
+    return updatedRecipe;
+  }
+
+  async getFavoriteRecipes(): Promise<Recipe[]> {
+    return Array.from(this.recipes.values()).filter(recipe => recipe.isFavorite);
   }
 }
 
