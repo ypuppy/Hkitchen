@@ -9,13 +9,19 @@ import { AuthProvider } from "@/hooks/use-auth";
 import { ProtectedRoute } from "@/lib/protected-route";
 import { useEffect } from "react";
 
-// Router with automatic redirection to /auth if needed
+// Router with explicit routes and debugging
 function Router() {
   const [location, setLocation] = useLocation();
   
-  // Force redirect to /auth if not at a valid route
+  console.log("Current location:", location);
+  
+  // Force redirect to /auth if needed
   useEffect(() => {
+    console.log("Router useEffect - current location:", location);
+    
+    // If we're at root and need login, this will be handled by ProtectedRoute
     if (location !== "/" && location !== "/auth" && !location.startsWith("/recipes/")) {
+      console.log("Router - redirecting to /auth");
       setLocation("/auth");
     }
   }, [location, setLocation]);
@@ -23,8 +29,21 @@ function Router() {
   return (
     <Switch>
       <ProtectedRoute path="/" component={Home} />
-      <Route path="/auth" component={AuthPage} />
-      <Route component={NotFound} />
+      
+      {/* Explicit auth route with debugging */}
+      <Route path="/auth">
+        {() => {
+          console.log("Rendering Auth Page");
+          return <AuthPage />;
+        }}
+      </Route>
+      
+      <Route>
+        {() => {
+          console.log("Rendering NotFound Page");
+          return <NotFound />;
+        }}
+      </Route>
     </Switch>
   );
 }

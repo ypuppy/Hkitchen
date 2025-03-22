@@ -45,10 +45,16 @@ export default function AuthPage() {
   
   // Redirect to home if already logged in
   useEffect(() => {
+    console.log("AuthPage - User state:", user);
+    console.log("AuthPage - Current location:", location);
+    
     if (user) {
+      console.log("AuthPage - User is logged in, redirecting to home");
       navigate("/");
+    } else {
+      console.log("AuthPage - User is not logged in, staying on auth page");
     }
-  }, [user, navigate]);
+  }, [user, navigate, location]);
 
   const loginForm = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
