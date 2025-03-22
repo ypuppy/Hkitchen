@@ -12,6 +12,43 @@ interface RecipeCardProps {
 }
 
 export default function RecipeCard({ recipe, inventoryItems, onClick }: RecipeCardProps) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  
+  // Toggle favorite mutation
+  const { mutate: toggleFavorite, isPending } = useMutation({
+    mutationFn: async () => {
+      return apiRequest('PUT', `/api/recipes/${recipe.id}/favorite`);
+    },
+    onSuccess: () => {
+      // Invalidate recipes queries to refetch data
+      queryClient.invalidateQueries({ queryKey: ['/api/recipes'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/recipes/favorites'] });
+      
+      toast({
+        title: recipe.isFavorite ? "Removed from favorites" : "Added to favorites",
+        description: recipe.isFavorite ? 
+          `${recipe.title} has been removed from your favorites.` : 
+          `${recipe.title} has been added to your favorites.`,
+        duration: 3000
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "Failed to update favorite status",
+        variant: "destructive",
+        duration: 3000
+      });
+      console.error("Failed to toggle favorite:", error);
+    }
+  });
+  
+  const handleFavoriteClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation(); // Prevent the card from being clicked
+    toggleFavorite();
+  };
+  
   // Get the main ingredient names for display
   const getMainIngredients = (ingredients: RecipeIngredient[] | string): string[] => {
     if (typeof ingredients === 'string') {
@@ -150,7 +187,19 @@ export default function RecipeCard({ recipe, inventoryItems, onClick }: RecipeCa
                 {recipe.matchedIngredients} of {recipe.totalIngredients} ingredients in your inventory
               </Badge>
               
-              <span className="text-xs text-primary font-medium">View Recipe →</span>
+              <div className="flex items-center">
+                <button
+                  onClick={handleFavoriteClick}
+                  disabled={isPending}
+                  className="mr-2 p-1.5 rounded-full transition-colors hover:bg-neutral-100"
+                  title={recipe.isFavorite ? "Remove from favorites" : "Add to favorites"}
+                >
+                  <Star 
+                    className={`h-4 w-4 ${recipe.isFavorite ? 'text-yellow-500 fill-yellow-500' : 'text-neutral-400'}`} 
+                  />
+                </button>
+                <span className="text-xs text-primary font-medium">View Recipe →</span>
+              </div>
             </div>
           </div>
         </div>

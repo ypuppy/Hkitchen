@@ -11,7 +11,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { InventoryItem, Recipe } from "@shared/schema";
-import { PlusCircle, ChefHat, Loader2, Sparkles, Utensils, BookOpen } from "lucide-react";
+import { PlusCircle, ChefHat, Loader2, Sparkles, Utensils, BookOpen, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export default function Home() {
@@ -30,6 +30,11 @@ export default function Home() {
   // Fetch recipes
   const { data: recipes = [], isLoading: isLoadingRecipes } = useQuery<Recipe[]>({
     queryKey: ['/api/recipes'],
+  });
+  
+  // Fetch favorite recipes
+  const { data: favoriteRecipes = [], isLoading: isLoadingFavorites } = useQuery<Recipe[]>({
+    queryKey: ['/api/recipes/favorites'],
   });
 
   // Generate recipes mutation
@@ -189,6 +194,7 @@ export default function Home() {
           
           {/* Recipe Section */}
           <div className="lg:col-span-7 space-y-6">
+            {/* Recipe Suggestions */}
             <div className="bg-white rounded-xl shadow-sm border border-neutral-100 overflow-hidden">
               <div className="bg-gradient-to-r from-amber-500 to-orange-500 px-6 py-4 flex justify-between items-center">
                 <div className="flex items-center">
@@ -230,6 +236,37 @@ export default function Home() {
                   <RecipeList 
                     recipes={recipes}
                     isLoading={isLoadingRecipes || generateRecipesMutation.isPending}
+                    onViewRecipe={handleViewRecipeDetails}
+                    inventoryItems={inventoryItems}
+                  />
+                )}
+              </div>
+            </div>
+            
+            {/* Favorite Recipes Section */}
+            <div className="bg-white rounded-xl shadow-sm border border-neutral-100 overflow-hidden">
+              <div className="bg-gradient-to-r from-yellow-400 to-yellow-500 px-6 py-4 flex justify-between items-center">
+                <div className="flex items-center">
+                  <div className="bg-white p-2 rounded-lg mr-3 shadow-sm">
+                    <Star className="h-5 w-5 text-yellow-500 fill-yellow-500" />
+                  </div>
+                  <h2 className="text-xl font-bold text-white">Favorite Recipes</h2>
+                </div>
+              </div>
+              
+              <div className="p-5">
+                {favoriteRecipes.length === 0 && !isLoadingFavorites && (
+                  <div className="text-center py-8 border-2 border-dashed border-neutral-200 rounded-lg bg-neutral-50">
+                    <Star className="h-12 w-12 mx-auto mb-3 text-neutral-300" />
+                    <h3 className="text-lg font-medium text-neutral-700">No favorite recipes yet</h3>
+                    <p className="text-neutral-500 mt-1">Click the star icon on recipes to add them to your favorites</p>
+                  </div>
+                )}
+                
+                {favoriteRecipes.length > 0 && (
+                  <RecipeList 
+                    recipes={favoriteRecipes}
+                    isLoading={isLoadingFavorites}
                     onViewRecipe={handleViewRecipeDetails}
                     inventoryItems={inventoryItems}
                   />
