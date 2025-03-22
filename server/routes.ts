@@ -23,9 +23,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
 
   // Inventory routes
-  app.get("/api/inventory", async (req: Request, res: Response) => {
+  app.get("/api/inventory", ensureAuthenticated, async (req: Request, res: Response) => {
     try {
-      const items = await storage.getInventoryItems();
+      const userId = req.user?.id;
+      const items = await storage.getInventoryItems(userId);
       res.json(items);
     } catch (error) {
       console.error("Error getting inventory items:", error);
@@ -33,15 +34,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/inventory/:id", async (req: Request, res: Response) => {
+  app.get("/api/inventory/:id", ensureAuthenticated, async (req: Request, res: Response) => {
     try {
       const id = Number(req.params.id);
       if (isNaN(id)) {
         return res.status(400).json({ error: "Invalid ID format" });
       }
 
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "User not authenticated" });
+      }
+
       const item = await storage.getInventoryItem(id);
-      if (!item) {
+      
+      // Check if the item belongs to the authenticated user
+      if (!item || item.userId !== userId) {
         return res.status(404).json({ error: "Item not found" });
       }
 
@@ -52,11 +60,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/inventory", async (req: Request, res: Response) => {
+  app.post("/api/inventory", ensureAuthenticated, async (req: Request, res: Response) => {
     try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "User not authenticated" });
+      }
+      
       // Validate request body
       const validatedItem = inventoryFormSchema.parse(req.body);
-      const newItem = await storage.createInventoryItem(validatedItem);
+      
+      // Associate the item with the current user
+      const itemWithUserId = {
+        ...validatedItem,
+        userId
+      };
+      
+      const newItem = await storage.createInventoryItem(itemWithUserId);
       res.status(201).json(newItem);
     } catch (error) {
       if (error instanceof ZodError) {
@@ -68,16 +88,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/inventory/:id", async (req: Request, res: Response) => {
+  app.put("/api/inventory/:id", ensureAuthenticated, async (req: Request, res: Response) => {
     try {
       const id = Number(req.params.id);
       if (isNaN(id)) {
         return res.status(400).json({ error: "Invalid ID format" });
       }
 
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "User not authenticated" });
+      }
+      
+      // Verify the item belongs to this user
+      const existingItem = await storage.getInventoryItem(id);
+      if (!existingItem || existingItem.userId !== userId) {
+        return res.status(404).json({ error: "Item not found" });
+      }
+
       // Validate request body
       const validatedItem = inventoryFormSchema.parse(req.body);
-      const updatedItem = await storage.updateInventoryItem(id, validatedItem);
+      
+      // Preserve the user ID in the updated item
+      const itemWithUserId = {
+        ...validatedItem,
+        userId
+      };
+      
+      const updatedItem = await storage.updateInventoryItem(id, itemWithUserId);
       
       if (!updatedItem) {
         return res.status(404).json({ error: "Item not found" });
@@ -94,11 +132,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/inventory/:id", async (req: Request, res: Response) => {
+  app.delete("/api/inventory/:id", ensureAuthenticated, async (req: Request, res: Response) => {
     try {
       const id = Number(req.params.id);
       if (isNaN(id)) {
         return res.status(400).json({ error: "Invalid ID format" });
+      }
+
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "User not authenticated" });
+      }
+      
+      // Verify the item belongs to this user
+      const existingItem = await storage.getInventoryItem(id);
+      if (!existingItem || existingItem.userId !== userId) {
+        return res.status(404).json({ error: "Item not found" });
       }
 
       const success = await storage.deleteInventoryItem(id);
@@ -114,9 +163,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Recipe generation route
-  app.post("/api/recipes/generate", async (req: Request, res: Response) => {
+  app.post("/api/recipes/generate", ensureAuthenticated, async (req: Request, res: Response) => {
     try {
-      const inventoryItems = await storage.getInventoryItems();
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "User not authenticated" });
+      }
+      
+      const inventoryItems = await storage.getInventoryItems(userId);
       
       if (inventoryItems.length === 0) {
         return res.status(400).json({ 
@@ -160,9 +214,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Recipe routes
   
   // Get all favorite recipes - this needs to be before the /:id route to avoid conflicts
-  app.get("/api/recipes/favorites", async (_req: Request, res: Response) => {
+  app.get("/api/recipes/favorites", ensureAuthenticated, async (req: Request, res: Response) => {
     try {
-      const favoriteRecipes = await storage.getFavoriteRecipes();
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "User not authenticated" });
+      }
+      
+      const favoriteRecipes = await storage.getFavoriteRecipes(userId);
       
       // Parse JSON strings back to objects
       const formattedRecipes = favoriteRecipes.map(recipe => ({
@@ -205,7 +264,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Invalid ID format" });
       }
 
-      const recipe = await storage.getRecipe(id);
+      // Check if user is authenticated to add favorite info
+      const userId = req.isAuthenticated() ? req.user?.id : undefined;
+      const recipe = await storage.getRecipe(id, userId);
+      
       if (!recipe) {
         return res.status(404).json({ error: "Recipe not found" });
       }
@@ -225,14 +287,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Toggle favorite status for a recipe
-  app.put("/api/recipes/:id/favorite", async (req: Request, res: Response) => {
+  app.put("/api/recipes/:id/favorite", ensureAuthenticated, async (req: Request, res: Response) => {
     try {
-      const id = Number(req.params.id);
-      if (isNaN(id)) {
+      const recipeId = Number(req.params.id);
+      if (isNaN(recipeId)) {
         return res.status(400).json({ error: "Invalid ID format" });
       }
       
-      const updatedRecipe = await storage.toggleFavoriteRecipe(id);
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "User not authenticated" });
+      }
+      
+      const updatedRecipe = await storage.toggleFavoriteRecipe(recipeId, userId);
       
       if (!updatedRecipe) {
         return res.status(404).json({ error: "Recipe not found" });
