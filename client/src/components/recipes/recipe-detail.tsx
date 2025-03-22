@@ -1,9 +1,11 @@
 import { Recipe, InventoryItem, RecipeIngredient, RecipeInstruction } from "@shared/schema";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { X, Clock, Users, Printer, Bookmark } from "lucide-react";
+import { X, Clock, Users, Printer, Star } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 
 interface RecipeDetailProps {
   recipe: Recipe;
@@ -13,6 +15,7 @@ interface RecipeDetailProps {
 
 export default function RecipeDetail({ recipe, onClose, inventoryItems }: RecipeDetailProps) {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   
   // Parse ingredients and instructions if they're stored as strings
   const ingredients: RecipeIngredient[] = typeof recipe.ingredients === 'string' 
@@ -33,15 +36,41 @@ export default function RecipeDetail({ recipe, onClose, inventoryItems }: Recipe
     );
   };
   
+  // Toggle favorite mutation
+  const { mutate: toggleFavorite, isPending } = useMutation({
+    mutationFn: async () => {
+      return apiRequest('PUT', `/api/recipes/${recipe.id}/favorite`);
+    },
+    onSuccess: () => {
+      // Invalidate recipes queries to refetch data
+      queryClient.invalidateQueries({ queryKey: ['/api/recipes'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/recipes/favorites'] });
+      
+      toast({
+        title: recipe.isFavorite ? "Removed from favorites" : "Added to favorites",
+        description: recipe.isFavorite ? 
+          `${recipe.title} has been removed from your favorites.` : 
+          `${recipe.title} has been added to your favorites.`,
+        duration: 3000
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "Failed to update favorite status",
+        variant: "destructive",
+        duration: 3000
+      });
+      console.error("Failed to toggle favorite:", error);
+    }
+  });
+  
   const handlePrintRecipe = () => {
     window.print();
   };
   
-  const handleSaveRecipe = () => {
-    toast({
-      title: "Recipe Saved",
-      description: "This recipe has been saved to your favorites.",
-    });
+  const handleToggleFavorite = () => {
+    toggleFavorite();
   };
   
   return (
@@ -134,9 +163,16 @@ export default function RecipeDetail({ recipe, onClose, inventoryItems }: Recipe
               <Printer className="h-5 w-5 mr-1" />
               Print Recipe
             </Button>
-            <Button variant="ghost" className="text-neutral-600 hover:text-neutral-900 transition-colors" onClick={handleSaveRecipe}>
-              <Bookmark className="h-5 w-5 mr-1" />
-              Save Recipe
+            <Button 
+              variant="ghost" 
+              className="text-neutral-600 hover:text-neutral-900 transition-colors" 
+              onClick={handleToggleFavorite}
+              disabled={isPending}
+            >
+              <Star 
+                className={`h-5 w-5 mr-1 ${recipe.isFavorite ? 'text-yellow-500 fill-yellow-500' : ''}`} 
+              />
+              {recipe.isFavorite ? "Remove from Favorites" : "Add to Favorites"}
             </Button>
           </div>
         </div>
